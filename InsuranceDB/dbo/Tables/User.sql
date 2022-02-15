@@ -1,0 +1,22 @@
+﻿CREATE TABLE [dbo].[User]
+(
+	[Id] UNIQUEIDENTIFIER NOT NULL , 
+    [Username] NVARCHAR(20) NOT NULL, 
+    [Password] NVARCHAR(255) NOT NULL, 
+    [Firstname] NVARCHAR(50) NOT NULL, 
+    [Lastname] NVARCHAR(50) NOT NULL, 
+    [Email] NVARCHAR(50) NOT NULL, 
+    [StatusId] UNIQUEIDENTIFIER NOT NULL,
+    [RoleId] UNIQUEIDENTIFIER NOT NULL,
+    [CreatedBy] UNIQUEIDENTIFIER NOT NULL, 
+    [CreatedDate] DATETIME2 NOT NULL, 
+    [ModifiedBy] UNIQUEIDENTIFIER NULL, 
+    [ModifiedDate] DATETIME2 NULL, 
+    CONSTRAINT [FK_User_Status] FOREIGN KEY ([StatusId]) REFERENCES [Status]([Id]), 
+    CONSTRAINT [FK_User_Role] FOREIGN KEY ([RoleId]) REFERENCES [Role]([Id]), 
+    CONSTRAINT [PK_User_Id] PRIMARY KEY NONCLUSTERED ([Id])
+)
+
+GO
+
+CREATE UNIQUE CLUSTERED INDEX [IX_User_Username] ON [dbo].[User] ([Username])

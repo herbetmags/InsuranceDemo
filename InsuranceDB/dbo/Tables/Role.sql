@@ -1,0 +1,16 @@
+﻿CREATE TABLE [dbo].[Role]
+(
+	[Id] UNIQUEIDENTIFIER NOT NULL , 
+    [Name] NVARCHAR(20) NOT NULL,
+    [Description] NVARCHAR(100) NOT NULL,
+    [IsDeleted] BIT NOT NULL,
+    [CreatedBy] UNIQUEIDENTIFIER NOT NULL, 
+    [CreatedDate] DATETIME2 NOT NULL, 
+    [ModifiedBy] UNIQUEIDENTIFIER NULL, 
+    [ModifiedDate] DATETIME2 NULL, 
+    CONSTRAINT [PK_Role_Id] PRIMARY KEY NONCLUSTERED ([Id])
+)
+
+GO
+
+CREATE UNIQUE CLUSTERED INDEX [IX_Role_Name] ON [dbo].[Role] ([Name])

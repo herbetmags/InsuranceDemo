@@ -1,0 +1,10 @@
+﻿CREATE TABLE [dbo].[Status]
+(
+	[Id] UNIQUEIDENTIFIER NOT NULL, 
+    [Code] NVARCHAR(20) NOT NULL, 
+    [Name] NVARCHAR(50) NOT NULL, 
+    CONSTRAINT [PK_Status_Id] PRIMARY KEY NONCLUSTERED ([Id]) 
+)
+GO
+
+CREATE UNIQUE CLUSTERED INDEX [IX_Status_Code] ON [dbo].[Status] ([Code])

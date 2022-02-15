@@ -1,0 +1,11 @@
+﻿CREATE TABLE [dbo].[UserPolicy]
+(
+	[Id] UNIQUEIDENTIFIER NOT NULL, 
+    [UserId] UNIQUEIDENTIFIER NOT NULL, 
+    [PolicyId] UNIQUEIDENTIFIER NOT NULL, 
+    [StatusId] UNIQUEIDENTIFIER NOT NULL, 
+    CONSTRAINT [FK_UserPolicy_User] FOREIGN KEY ([UserId]) REFERENCES [User]([Id]), 
+    CONSTRAINT [FK_UserPolicy_Policy] FOREIGN KEY ([PolicyId]) REFERENCES [Policy]([Id]), 
+    CONSTRAINT [FK_UserPolicy_Status] FOREIGN KEY ([StatusId]) REFERENCES [Status](Id), 
+    CONSTRAINT [PK_UserPolicy_Id] PRIMARY KEY NONCLUSTERED ([Id])
+)
