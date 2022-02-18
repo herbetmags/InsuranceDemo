@@ -2,6 +2,7 @@
 using Insurance.Common.Interfaces.Repositories;
 using Insurance.Common.Models.Bases;
 using Insurance.Common.Models.DTOs.User;
+using Insurance.Common.Models.DTOs.UserPolicy;
 using Insurance.Common.Models.Enums;
 using Insurance.Data.Context;
 using Insurance.Data.Entities;
@@ -19,7 +20,7 @@ namespace Insurance.Business.Managers
         private readonly IRepository<Role> _rolesRepository;
         private readonly IRepository<Status> _statusRepository;
         public UsersDataManager(IUnitOfWork<InsuranceDbContext> unitOfWork)
-            : base (unitOfWork)
+            : base(unitOfWork)
         {
             _usersRepository = UnitOfWork.GetRepository<User>();
             _rolesRepository = UnitOfWork.GetRepository<Role>();
@@ -31,42 +32,41 @@ namespace Insurance.Business.Managers
             var processResult = new ProcessResult<Guid>(string.Empty);
             try
             {
+                var result = await GetUserByUsernameAsync(request.Username);
                 using (var conn = UnitOfWork.CreateOpenConnection())
                 {
-                    using (var trans = UnitOfWork.BeginTransaction())
+                    var role = await Task.FromResult(_rolesRepository.GetById(request.RoleId));
+                    var roles = await Task.FromResult(_rolesRepository.GetAll(false));
+                    var roleId = roles.First(entity => entity.Name == nameof(RolesEnum.CLIENT)).Id;
+                    var statuses = await Task.FromResult(_statusRepository.GetAll(false));
+                    var statusId = statuses.First(status => status.Code == nameof(StatusEnum.PENDING)).Id;
+                    var entity = new User
                     {
-                        var role = await Task.FromResult(_rolesRepository.GetById(request.RoleId));
-                        var roles = await Task.FromResult(_rolesRepository.GetAll(false));
-                        var roleId = roles.First(entity => entity.Name == nameof(RolesEnum.CLIENT)).Id;
-                        var statuses = await Task.FromResult(_statusRepository.GetAll(false));
-                        var statusId = statuses.First(status => status.Code == nameof(StatusEnum.PENDING)).Id;
-                        var entity = new User
-                        {
-                            CreatedBy = request.CreatedBy,
-                            CreatedDate = request.CreatedDate,
-                            Email = request.Email,
-                            Firstname = request.Firstname,
-                            Id = request.Id.Equals(Guid.Empty) ? Guid.NewGuid() : request.Id,
-                            Lastname = request.Lastname,
-                            Password = request.Password,
-                            RoleId = role != null ? role.Id : roleId,
-                            StatusId = request.StatusId.Equals(Guid.Empty) ? statusId : request.StatusId,
-                            Username = request.Username
-                        };
-                        var result = await GetUserByUsernameAsync(request.Username);
-                        var user = result.ResultObject;
-                        if (user == null)
+                        CreatedBy = request.CreatedBy,
+                        CreatedDate = request.CreatedDate,
+                        Email = request.Email,
+                        Firstname = request.Firstname,
+                        Id = request.Id.Equals(Guid.Empty) ? Guid.NewGuid() : request.Id,
+                        Lastname = request.Lastname,
+                        Password = request.Password,
+                        RoleId = role != null ? role.Id : roleId,
+                        StatusId = request.StatusId.Equals(Guid.Empty) ? statusId : request.StatusId,
+                        Username = request.Username
+                    };
+                    var user = result.ResultObject;
+                    if (user == null)
+                    {
+                        using (var trans = UnitOfWork.BeginTransaction())
                         {
                             await Task.FromResult(_usersRepository.Insert(entity));
                             UnitOfWork.Commit();
                             processResult = new ProcessResult<Guid>(entity.Id);
                         }
-                        else
-                        {
-                            processResult = new ProcessResult<Guid>("The username has already been taken.");
-                        }
                     }
-                    UnitOfWork.Save();
+                    else
+                    {
+                        processResult = new ProcessResult<Guid>("The username has already been taken.");
+                    }
                 }
             }
             catch (Exception ex)
@@ -109,7 +109,17 @@ namespace Insurance.Business.Managers
                                     RoleId = entity.RoleId,
                                     RoleName = entity.Role.Name,
                                     StatusId = entity.StatusId,
-                                    StatusCode = entity.Status.Code
+                                    StatusCode = entity.Status.Code,
+                                    UserPolicies = entity.UserPolicies
+                                        .Select(userPolicy => new UserPolicyDTO
+                                        {
+                                            Id = userPolicy.Id,
+                                            PolicyId = userPolicy.PolicyId,
+                                            PolicyName = userPolicy.Policy.Name,
+                                            StatusId = userPolicy.StatusId,
+                                            StatusCode = userPolicy.Status.Code,
+                                            UserId = userPolicy.UserId,
+                                        }).ToList()
                                 })
                                 .ToList();
                         result.TotalRecords = entities.Count();
@@ -130,14 +140,17 @@ namespace Insurance.Business.Managers
             var processResult = new ProcessResult<UserDTO>(string.Empty);
             try
             {
+                var entities = await Task.FromResult(_usersRepository.GetAll(false));
                 using (var conn = UnitOfWork.CreateOpenConnection())
                 {
-                    var entity = await Task.FromResult(_usersRepository.GetById(request.Id));
+                    var entity = entities.Where(entity => entity.Id == request.Id)
+                        .Include(u => u.Status)
+                        .Include(u => u.Role)
+                        .Include(u => u.UserPolicies)
+                        .FirstOrDefault();
                     UserDTO dto = null;
                     if (entity != null)
                     {
-                        var role = await Task.FromResult(_rolesRepository.GetById(entity.RoleId));
-                        var status = await Task.FromResult(_statusRepository.GetById(entity.StatusId));
                         dto = new UserDTO
                         {
                             CreatedBy = entity.CreatedBy,
@@ -148,11 +161,21 @@ namespace Insurance.Business.Managers
                             Lastname = entity.Lastname,
                             ModifiedBy = entity.ModifiedBy,
                             ModifiedDate = entity.ModifiedDate,
-                            RoleId = role.Id,
-                            RoleName = role.Name,
-                            StatusId = status.Id,
-                            StatusCode = status.Code,
-                            Username = entity.Username
+                            RoleId = entity.Role.Id,
+                            RoleName = entity.Role.Name,
+                            StatusId = entity.Status.Id,
+                            StatusCode = entity.Status.Code,
+                            Username = entity.Username,
+                            UserPolicies = entity.UserPolicies
+                                .Select(userPolicy => new UserPolicyDTO
+                                {
+                                    Id = userPolicy.Id,
+                                    PolicyId = userPolicy.PolicyId,
+                                    PolicyName = userPolicy.Policy.Name,
+                                    StatusId = userPolicy.StatusId,
+                                    StatusCode = userPolicy.Status.Code,
+                                    UserId = userPolicy.UserId,
+                                }).ToList()
                         };
                     }
                     processResult = new ProcessResult<UserDTO>(dto);
@@ -172,33 +195,33 @@ namespace Insurance.Business.Managers
             {
                 using (var conn = UnitOfWork.CreateOpenConnection())
                 {
-                    using (var trans = UnitOfWork.BeginTransaction())
+                    var entity = await Task.FromResult(_usersRepository.GetById(request.Id));
+                    var role = await Task.FromResult(_rolesRepository.GetById(request.RoleId));
+                    var roles = await Task.FromResult(_rolesRepository.GetAll(false));
+                    var roleId = roles.First(entity => entity.Name == nameof(RolesEnum.CLIENT)).Id;
+                    var status = await Task.FromResult(_statusRepository.GetById(request.StatusId));
+                    var statuses = await Task.FromResult(_statusRepository.GetAll(false));
+                    var statusId = statuses.First(status => status.Code == nameof(StatusEnum.PENDING)).Id;
+                    if (entity != null)
                     {
-                        var entity = await Task.FromResult(_usersRepository.GetById(request.Id));
-                        var role = await Task.FromResult(_rolesRepository.GetById(request.RoleId));
-                        var roles = await Task.FromResult(_rolesRepository.GetAll(false));
-                        var roleId = roles.First(entity => entity.Name == nameof(RolesEnum.CLIENT)).Id;
-                        var status = await Task.FromResult(_statusRepository.GetById(request.StatusId));
-                        var statuses = await Task.FromResult(_statusRepository.GetAll(false));
-                        var statusId = statuses.First(status => status.Code == nameof(StatusEnum.PENDING)).Id;
-                        if (entity != null)
+                        entity.Email = request.Email;
+                        entity.Firstname = request.Firstname;
+                        entity.Lastname = request.Lastname;
+                        entity.ModifiedBy = request.ModifiedBy;
+                        entity.ModifiedDate = request.ModifiedDate;
+                        entity.RoleId = role != null ? role.Id : roleId;
+                        entity.StatusId = status != null ? status.Id : statusId;
+                        entity.Password = request.Password;
+                        using (var trans = UnitOfWork.BeginTransaction())
                         {
-                            entity.Email = request.Email;
-                            entity.Firstname = request.Firstname;
-                            entity.Lastname = request.Lastname;
-                            entity.ModifiedBy = request.ModifiedBy;
-                            entity.ModifiedDate = request.ModifiedDate;
-                            entity.RoleId = role != null ? role.Id : roleId;
-                            entity.StatusId = status != null ? status.Id : statusId;
-                            entity.Password = request.Password;
                             await Task.FromResult(_usersRepository.Update(entity));
                             UnitOfWork.Commit();
                             processResult = new ProcessResult<Guid>(entity.Id);
                         }
-                        else
-                        {
-                            throw new Exception("The user you're trying to update no longer exists.");
-                        }
+                    }
+                    else
+                    {
+                        throw new Exception("The user you're trying to update no longer exists.");
                     }
                 }
             }
@@ -217,14 +240,14 @@ namespace Insurance.Business.Managers
             {
                 using (var conn = UnitOfWork.CreateOpenConnection())
                 {
-                    using (var trans = UnitOfWork.BeginTransaction())
+                    var statuses = await Task.FromResult(_statusRepository.GetAll(false));
+                    var status = statuses.First(entity => entity.Code == nameof(StatusEnum.TERMINATED));
+                    var entity = await Task.FromResult(_usersRepository.GetById(request.Id));
+                    if (entity != null)
                     {
-                        var statuses = await Task.FromResult(_statusRepository.GetAll(false));
-                        var status = statuses.First(entity => entity.Code == nameof(StatusEnum.TERMINATED));
-                        var entity = await Task.FromResult(_usersRepository.GetById(request.Id));
-                        if (entity != null)
+                        entity.StatusId = status.Id;
+                        using (var trans = UnitOfWork.BeginTransaction())
                         {
-                            entity.StatusId = status.Id;
                             await Task.FromResult(_usersRepository.Update(entity));
                             UnitOfWork.Commit();
                             processResult = new ProcessResult<int>(1);

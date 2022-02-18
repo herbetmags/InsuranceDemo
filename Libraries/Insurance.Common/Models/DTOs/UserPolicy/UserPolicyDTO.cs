@@ -8,5 +8,7 @@ namespace Insurance.Common.Models.DTOs.UserPolicy
         public Guid UserId { get; set; }
         public Guid PolicyId { get; set; }
         public Guid StatusId { get; set; }
+        public string PolicyName { get; set; }
+        public string StatusCode { get; set; }
     }
 }

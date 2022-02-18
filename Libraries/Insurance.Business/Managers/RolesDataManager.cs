@@ -15,7 +15,7 @@ namespace Insurance.Business.Managers
     {
         private readonly IRepository<Role> _rolesRepository;
         public RolesDataManager(IUnitOfWork<InsuranceDbContext> unitOfWork)
-            : base (unitOfWork)
+            : base(unitOfWork)
         {
             _rolesRepository = UnitOfWork.GetRepository<Role>();
         }
@@ -25,31 +25,31 @@ namespace Insurance.Business.Managers
             var processResult = new ProcessResult<Guid>(string.Empty);
             try
             {
+                var result = await GetRoleByNameAsync(request.Name);
                 using (var conn = UnitOfWork.CreateOpenConnection())
                 {
-                    using (var trans = UnitOfWork.BeginTransaction())
+                    var entity = new Role
                     {
-                        var entity = new Role
-                        {
-                            CreatedBy = request.CreatedBy,
-                            CreatedDate = request.CreatedDate,
-                            Description = request.Description,
-                            Id = request.Id.Equals(Guid.Empty) ? Guid.NewGuid() : request.Id,
-                            IsDeleted = request.IsDeleted,
-                            Name = request.Name
-                        };
-                        var result = await GetRoleByNameAsync(request.Name);
-                        var role = result.ResultObject;
-                        if (role == null)
+                        CreatedBy = request.CreatedBy,
+                        CreatedDate = request.CreatedDate,
+                        Description = request.Description,
+                        Id = request.Id.Equals(Guid.Empty) ? Guid.NewGuid() : request.Id,
+                        IsDeleted = request.IsDeleted,
+                        Name = request.Name
+                    };
+                    var role = result.ResultObject;
+                    if (role == null)
+                    {
+                        using (var trans = UnitOfWork.BeginTransaction())
                         {
                             await Task.FromResult(_rolesRepository.Insert(entity));
                             UnitOfWork.Commit();
                             processResult = new ProcessResult<Guid>(entity.Id);
                         }
-                        else
-                        {
-                            processResult = new ProcessResult<Guid>("The role name has already been exists.");
-                        }
+                    }
+                    else
+                    {
+                        processResult = new ProcessResult<Guid>("The role name has already been existed.");
                     }
                 }
             }
@@ -139,44 +139,44 @@ namespace Insurance.Business.Managers
             var processResult = new ProcessResult<Guid>(string.Empty);
             try
             {
+                var result = await GetRoleByNameAsync(request.Name);
                 using (var conn = UnitOfWork.CreateOpenConnection())
                 {
-                    using (var trans = UnitOfWork.BeginTransaction())
+                    var entity = await Task.FromResult(_rolesRepository.GetById(request.Id));
+                    if (entity != null)
                     {
-                        var entity = await Task.FromResult(_rolesRepository.GetById(request.Id));
-                        if (entity != null)
+                        entity.Description = request.Description;
+                        entity.IsDeleted = request.IsDeleted;
+                        entity.ModifiedBy = request.ModifiedBy;
+                        entity.ModifiedDate = request.ModifiedDate;
+                        entity.Name = request.Name;
+                        var role = result.ResultObject;
+                        if (role != null && role.Id == entity.Id)
                         {
-                            var result = await GetRoleByNameAsync(request.Name);
-                            var role = result.ResultObject;
-                            if (role == null)
+                            using (var trans = UnitOfWork.BeginTransaction())
                             {
-                                entity.Description = request.Description;
-                                entity.IsDeleted = request.IsDeleted;
-                                entity.ModifiedBy = request.ModifiedBy;
-                                entity.ModifiedDate = request.ModifiedDate;
-                                entity.Name = request.Name;
                                 await Task.FromResult(_rolesRepository.Update(entity));
                                 UnitOfWork.Commit();
                                 processResult = new ProcessResult<Guid>(entity.Id);
                             }
-                            else
-                            {
-                                processResult = new ProcessResult<Guid>("The role name has already been exists.");
-                            }
                         }
                         else
                         {
-                            var createRequest = new CreateRoleRequest
-                            {
-                                CreatedBy = request.ModifiedBy.Value,
-                                CreatedDate = request.ModifiedDate.Value,
-                                Description = request.Description,
-                                Id = request.Id,
-                                IsDeleted = request.IsDeleted,
-                                Name = request.Name
-                            };
-                            return CreateRoleAsync(createRequest).Result;
+                            processResult = new ProcessResult<Guid>("The role name has already been existed.");
                         }
+                    }
+                    else
+                    {
+                        var createRequest = new CreateRoleRequest
+                        {
+                            CreatedBy = request.ModifiedBy.Value,
+                            CreatedDate = request.ModifiedDate.Value,
+                            Description = request.Description,
+                            Id = request.Id,
+                            IsDeleted = request.IsDeleted,
+                            Name = request.Name
+                        };
+                        return CreateRoleAsync(createRequest).Result;
                     }
                 }
             }

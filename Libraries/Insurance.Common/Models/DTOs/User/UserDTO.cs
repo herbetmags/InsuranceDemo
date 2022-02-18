@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Insurance.Common.Models.DTOs.UserPolicy;
+using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 
 namespace Insurance.Common.Models.DTOs.User
@@ -31,5 +33,6 @@ namespace Insurance.Common.Models.DTOs.User
         public string RoleName { get; set; }
         [StringLength(20)]
         public string StatusCode { get; set; }
+        public ICollection<UserPolicyDTO> UserPolicies { get; set; }
     }
 }

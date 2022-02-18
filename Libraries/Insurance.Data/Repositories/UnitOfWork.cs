@@ -12,8 +12,8 @@ namespace Insurance.Data.Repositories
     {
         private bool _isDisposed;
         private readonly TContext _context;
-        private static IDbConnection _connection;
-        private static IDbTransaction _transaction;
+        private IDbConnection _connection;
+        private IDbTransaction _transaction;
         private readonly IDictionary<string, object> _repositories;
         
         public UnitOfWork()
@@ -28,8 +28,6 @@ namespace Insurance.Data.Repositories
             {
                 if (disposing)
                 {
-                    _connection?.Dispose();
-                    _transaction?.Dispose();
                     _context.Dispose();
                 }
 
@@ -59,7 +57,7 @@ namespace Insurance.Data.Repositories
         public IDbConnection CreateOpenConnection()
         {
             _connection = _context.Database.GetDbConnection();
-            if (_connection.State == ConnectionState.Closed)
+            if (_connection != null && _connection.State == ConnectionState.Closed)
             {
                 _connection.ConnectionString = _context.Database.GetConnectionString();
                 _connection.Open();
@@ -69,7 +67,7 @@ namespace Insurance.Data.Repositories
 
         public IDbTransaction BeginTransaction()
         {
-            _transaction = _connection.BeginTransaction();
+            _transaction = _connection?.BeginTransaction();
             return _transaction;
         }
 
@@ -87,15 +85,15 @@ namespace Insurance.Data.Repositories
 
         public void Commit()
         {
-            Save();
-            if (_transaction == null)
-                _transaction = BeginTransaction();
             _transaction?.Commit();
+            Save();
+            _transaction.Dispose();
         }
 
         public void Rollback()
         {
             _transaction?.Rollback();
+            _transaction?.Dispose();
         }
 
         public void Save()

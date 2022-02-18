@@ -17,7 +17,7 @@ namespace Insurance.Business.Managers
         private readonly IRepository<UserPolicy> _userPoliciesRepository;
         private readonly IRepository<Status> _statusRepository;
         public UserPoliciesDataManager(IUnitOfWork<InsuranceDbContext> unitOfWork)
-            : base (unitOfWork)
+            : base(unitOfWork)
         {
             _userPoliciesRepository = UnitOfWork.GetRepository<UserPolicy>();
             _statusRepository = UnitOfWork.GetRepository<Status>();
@@ -30,15 +30,15 @@ namespace Insurance.Business.Managers
             {
                 using (var conn = UnitOfWork.CreateOpenConnection())
                 {
+                    var entity = new UserPolicy
+                    {
+                        Id = request.Id.Equals(Guid.Empty) ? Guid.NewGuid() : request.Id,
+                        PolicyId = request.PolicyId,
+                        StatusId = request.StatusId,
+                        UserId = request.UserId
+                    };
                     using (var trans = UnitOfWork.BeginTransaction())
                     {
-                        var entity = new UserPolicy
-                        {
-                            Id = request.Id.Equals(Guid.Empty) ? Guid.NewGuid() : request.Id,
-                            PolicyId = request.PolicyId,
-                            StatusId = request.StatusId,
-                            UserId = request.UserId
-                        };
                         await Task.FromResult(_userPoliciesRepository.Insert(entity));
                         UnitOfWork.Commit();
                         processResult = new ProcessResult<Guid>(entity.Id);
@@ -125,22 +125,23 @@ namespace Insurance.Business.Managers
             {
                 using (var conn = UnitOfWork.CreateOpenConnection())
                 {
-                    using (var trans = UnitOfWork.BeginTransaction())
+                    var entity = await Task.FromResult(_userPoliciesRepository.GetById(request.Id));
+                    if (entity != null)
                     {
-                        var entity = await Task.FromResult(_userPoliciesRepository.GetById(request.Id));
-                        if (entity != null)
+                        entity.PolicyId = request.PolicyId;
+                        entity.StatusId = request.StatusId;
+                        entity.UserId = request.UserId;
+
+                        using (var trans = UnitOfWork.BeginTransaction())
                         {
-                            entity.PolicyId = request.PolicyId;
-                            entity.StatusId = request.StatusId;
-                            entity.UserId = request.UserId;
                             await Task.FromResult(_userPoliciesRepository.Update(entity));
                             UnitOfWork.Commit();
                             processResult = new ProcessResult<Guid>(entity.Id);
                         }
-                        else
-                        {
-                            throw new Exception("The user policy you're trying to update no longer exists.");
-                        }
+                    }
+                    else
+                    {
+                        throw new Exception("The user policy you're trying to update no longer exists.");
                     }
                 }
             }
@@ -159,14 +160,14 @@ namespace Insurance.Business.Managers
             {
                 using (var conn = UnitOfWork.CreateOpenConnection())
                 {
-                    using (var trans = UnitOfWork.BeginTransaction())
+                    var statuses = await Task.FromResult(_statusRepository.GetAll(false));
+                    var status = statuses.First(entity => entity.Code == nameof(StatusEnum.TERMINATED));
+                    var entity = await Task.FromResult(_userPoliciesRepository.GetById(request.Id));
+                    if (entity != null)
                     {
-                        var statuses = await Task.FromResult(_statusRepository.GetAll(false));
-                        var status = statuses.First(entity => entity.Code == nameof(StatusEnum.TERMINATED));
-                        var entity = await Task.FromResult(_userPoliciesRepository.GetById(request.Id));
-                        if (entity != null)
+                        entity.StatusId = status.Id;
+                        using (var trans = UnitOfWork.BeginTransaction())
                         {
-                            entity.StatusId = status.Id;
                             await Task.FromResult(_userPoliciesRepository.Update(entity));
                             UnitOfWork.Commit();
                             processResult = new ProcessResult<int>(1);

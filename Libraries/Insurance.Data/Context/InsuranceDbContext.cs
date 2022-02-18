@@ -69,7 +69,7 @@ namespace Insurance.Data.Context
                     .WithMany(p => p.Users)
                     .HasForeignKey(d => d.RoleId)
                     .OnDelete(DeleteBehavior.ClientSetNull)
-                    .HasConstraintName("FK_UserRole_Role");
+                    .HasConstraintName("FK_User_Role");
             });
 
             modelBuilder.Entity<UserPolicy>(entity =>

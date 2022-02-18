@@ -27,31 +27,31 @@ namespace Insurance.Business.Managers
             var processResult = new ProcessResult<Guid>(string.Empty);
             try
             {
+                var result = await GetPolicyByNameAsync(request.Name);
                 using (var conn = UnitOfWork.CreateOpenConnection())
                 {
-                    using (var trans = UnitOfWork.BeginTransaction())
+                    var entity = new Policy
                     {
-                        var entity = new Policy
-                        {
-                            CreatedBy = request.CreatedBy,
-                            CreatedDate = request.CreatedDate,
-                            Description = request.Description,
-                            IsDeleted = request.IsDeleted,
-                            Id = request.Id.Equals(Guid.Empty) ? Guid.NewGuid() : request.Id,
-                            Name = request.Name
-                        };
-                        var result = await GetPolicyByNameAsync(request.Name);
-                        var policy = result.ResultObject;
-                        if (policy == null)
+                        CreatedBy = request.CreatedBy,
+                        CreatedDate = request.CreatedDate,
+                        Description = request.Description,
+                        IsDeleted = request.IsDeleted,
+                        Id = request.Id.Equals(Guid.Empty) ? Guid.NewGuid() : request.Id,
+                        Name = request.Name
+                    };
+                    var policy = result.ResultObject;
+                    if (policy == null)
+                    {
+                        using (var trans = UnitOfWork.BeginTransaction())
                         {
                             await Task.FromResult(_policiesRepository.Insert(entity));
                             UnitOfWork.Commit();
                             processResult = new ProcessResult<Guid>(entity.Id);
                         }
-                        else
-                        {
-                            processResult = new ProcessResult<Guid>("The policy name has already been exists.");
-                        }
+                    }
+                    else
+                    {
+                        processResult = new ProcessResult<Guid>("The policy name has already been existed.");
                     }
                 }
             }
@@ -143,33 +143,33 @@ namespace Insurance.Business.Managers
             {
                 using (var conn = UnitOfWork.CreateOpenConnection())
                 {
-                    using (var trans = UnitOfWork.BeginTransaction())
+                    var entity = await Task.FromResult(_policiesRepository.GetById(request.Id));
+                    if (entity != null)
                     {
-                        var entity = await Task.FromResult(_policiesRepository.GetById(request.Id));
-                        if (entity != null)
+                        entity.Description = request.Description;
+                        entity.IsDeleted = request.IsDeleted;
+                        entity.ModifiedBy = request.ModifiedBy;
+                        entity.ModifiedDate = request.ModifiedDate;
+                        entity.Name = request.Name;
+                        using (var trans = UnitOfWork.BeginTransaction())
                         {
-                            entity.Description = request.Description;
-                            entity.IsDeleted = request.IsDeleted;
-                            entity.ModifiedBy = request.ModifiedBy;
-                            entity.ModifiedDate = request.ModifiedDate;
-                            entity.Name = request.Name;
                             await Task.FromResult(_policiesRepository.Update(entity));
                             UnitOfWork.Commit();
                             processResult = new ProcessResult<Guid>(entity.Id);
                         }
-                        else
+                    }
+                    else
+                    {
+                        var createRequest = new CreatePolicyRequest
                         {
-                            var createRequest = new CreatePolicyRequest
-                            {
-                                CreatedBy = request.ModifiedBy.Value,
-                                CreatedDate = request.ModifiedDate.Value,
-                                Description = request.Description,
-                                Id = request.Id,
-                                IsDeleted = request.IsDeleted,
-                                Name = request.Name
-                            };
-                            return CreatePolicyAsync(createRequest).Result;
-                        }
+                            CreatedBy = request.ModifiedBy.Value,
+                            CreatedDate = request.ModifiedDate.Value,
+                            Description = request.Description,
+                            Id = request.Id,
+                            IsDeleted = request.IsDeleted,
+                            Name = request.Name
+                        };
+                        return CreatePolicyAsync(createRequest).Result;
                     }
                 }
             }

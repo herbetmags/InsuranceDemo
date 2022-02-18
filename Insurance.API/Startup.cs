@@ -42,7 +42,7 @@ namespace Insurance.API
             });
             //services.AddDbContext<InsuranceDbContext>(opt =>
             //            opt.UseSqlServer(Configuration["ConnectionStrings:InsuranceDB"]));
-            ConfigureSingletonRepositories(services);
+            ConfigureTransientRepositories(services);
             ConfigureSingletonServices(services);
             ConfigureSingletonDataManagers(services);
             ConfigureAppSettingsTypes(services);
@@ -115,9 +115,9 @@ namespace Insurance.API
             });
         }
 
-        public void ConfigureSingletonRepositories(IServiceCollection services)
+        public void ConfigureTransientRepositories(IServiceCollection services)
         {
-            services.AddSingleton(typeof(IUnitOfWork<>), typeof(UnitOfWork<>));
+            services.AddTransient(typeof(IUnitOfWork<>), typeof(UnitOfWork<>));
         }
 
         public void ConfigureSingletonServices(IServiceCollection services)
